@@ -10,7 +10,6 @@ import json
 import logging
 import re
 import requests
-from types import SimpleNamespace
 
 TYPE_ERROR_FIELD_EXTRACT_RE = r"[^']+'([^']+)'.*"
 
@@ -63,6 +62,21 @@ def register(user: User, nonce: str, mac: str, uri: str):
     return requests.post(uri, json=reg_payload)
 
 
+def parse_log_level(level):
+    match level.lower():
+        case "debug":
+            return logging.DEBUG
+        case "info":
+            return logging.INFO
+        case "warning":
+            return logging.WARNING
+        case "error":
+            return logging.ERROR
+        case "critical":
+            return logging.CRITICAL
+        case _:
+            raise TypeError("bad log level")
+
 def parse_arguments():
     arg_parser = argparse.ArgumentParser(
             prog="matrix_user_add",
@@ -70,8 +84,8 @@ def parse_arguments():
             epilog=":)")
     arg_parser.add_argument("filename")
     arg_parser.add_argument('-H', '--host', required=True)
+    arg_parser.add_argument('-l', '--loglevel', required=False, default="info")
     return arg_parser.parse_args()
-
 
 def parse_user_file(filename: str) -> str | None:
     """parses a JSON file with user fields. Error handling
@@ -94,12 +108,12 @@ def parse_user_file(filename: str) -> str | None:
 
     return user_data
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
     args = parse_arguments()    
 
     user_file_name = args.filename
     host = args.host
+    loglevel = parse_log_level(args.loglevel)
+    logging.basicConfig(level=parse_log_level(args.loglevel), format="%(message)s")
 
     reg_uri = f"https://{host}{reg_path}"
     

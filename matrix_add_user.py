@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import hashlib
 import hmac
 import json
+import logging
 import re
 import requests
 from types import SimpleNamespace
@@ -51,7 +52,6 @@ def generate_mac(user: User, nonce: str):
 
 
 def register(user: User, nonce: str, mac: str, uri: str):
-
     reg_payload = {
        "username": user.username,
        "displayname": user.displayname,
@@ -74,6 +74,8 @@ def parse_arguments():
 
 
 def parse_user_file(filename: str) -> str | None:
+    """parses a JSON file with user fields. Error handling
+    is brittle - trying to translate string messages"""
     with open(filename, "r") as user_file:
         try:
             user_data = json.load(user_file, object_hook=lambda d: User(**d))
@@ -83,15 +85,17 @@ def parse_user_file(filename: str) -> str | None:
                 err = "unknown field: "
             else:
                 err = ""
-            print(f"ERROR parsing user file: {err}{field_name}")
+            logging.error(f"ERROR parsing user file: {err}{field_name}")
             return None
         except json.decoder.JSONDecodeError:
-            print("ERROR parsing user file: invalid JSON")
+            logging.error("ERROR parsing user file: invalid JSON")
             return None
 
 
     return user_data
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     args = parse_arguments()    
 
     user_file_name = args.filename
@@ -103,11 +107,13 @@ if __name__ == "__main__":
     shared_secret = bytes(shared_secret, "utf-8")
 
     user_data = parse_user_file(user_file_name)
+    if user_data is None:
+        exit(1)
     
     nonce = get_nonce(reg_uri)
-    print(f"got nonce: {nonce}")
+    logging.debug(f"got nonce: {nonce}")
     mac = generate_mac(user_data, nonce)
-    print(f"got MAC: {mac}")
+    logging.debug(f"got MAC: {mac}")
     reg_res = register(user_data, nonce, mac, reg_uri)
-    print(f"registration response:\n{reg_res.text}")
+    logging.info(f"registration response:\n{reg_res.text}")
 
